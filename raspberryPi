@@ -1,0 +1,68 @@
+import os
+import RPi.GPIO as GPIO
+from lib_nrf24 import NRF24
+import spidev
+import time
+import picamera
+import threading
+
+pipes = [b"00001"]
+
+# Initialize nRF24L01+
+radio = NRF24(GPIO, spidev.SpiDev())
+radio.begin(0, 17)  # SPI CE pin
+radio.setPayloadSize(32)
+radio.setChannel(0x76)
+radio.setDataRate(NRF24.BR_250KBPS)
+radio.setPALevel(NRF24.PA_HIGH)
+radio.openReadingPipe(1, pipes[0])
+radio.startListening()
+
+# Initialize PiCamera
+camera = picamera.PiCamera()
+
+# Function to get free storage
+def get_storage_status():
+    statvfs = os.statvfs("/")
+    total = (statvfs.f_blocks * statvfs.f_frsize) / (1024 ** 3)
+    free = (statvfs.f_bfree * statvfs.f_frsize) / (1024 ** 3)
+    return (free / total) * 100
+
+# Function to get battery level (if available)
+def get_battery_status():
+    try:
+        with open("/sys/class/power_supply/BAT0/capacity", "r") as f:
+            return int(f.read().strip())
+    except:
+        return -1  # No battery info available
+
+# Function to periodically send status
+def send_status_loop():
+    while True:
+        storage = get_storage_status()
+        battery = get_battery_status()
+        message = f"{int(storage)}%|{int(battery)}%"
+        radio.stopListening()
+        radio.write(list(message.encode('utf-8')))
+        radio.startListening()
+        print(f"[Status Sent] Storage: {storage:.2f}%, Battery: {battery}%")
+        time.sleep(10)  # Adjust reporting interval here
+
+# Start status sending thread
+status_thread = threading.Thread(target=send_status_loop, daemon=True)
+status_thread.start()
+
+# Main loop - listen for capture command
+while True:
+    while radio.available():
+        receivedMessage = []
+        radio.read(receivedMessage, radio.getDynamicPayloadSize())
+        message = "".join([chr(n) for n in receivedMessage if 32 <= n <= 126])
+
+        print(f"[Command Received] {message}")
+
+        if message == "CAPTURE":
+            print("Trigger received. Capturing image...")
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            camera.capture(f"/home/pi/image_{timestamp}.jpg")
+            print("Image saved.")
