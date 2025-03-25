@@ -8,7 +8,7 @@
 // Define pins
 #define BUTTON_PIN 2        // Button input pin
 #define LED_GREEN 4
-#define LED_YELLOW 5
+#define LED_BLUE 5
 #define LED_RED 6
 
 RF24 radio(CE_PIN, CSN_PIN);
@@ -22,7 +22,7 @@ void setup() {
   // Setup pins
   pinMode(BUTTON_PIN, INPUT_PULLUP);  // Active LOW button
   pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_YELLOW, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
   pinMode(LED_RED, OUTPUT);
 
   // Initialize nRF24L01+
@@ -70,15 +70,15 @@ void loop() {
       // LED Control Logic
       if (storage > 50) {
         digitalWrite(LED_GREEN, HIGH);
-        digitalWrite(LED_YELLOW, LOW);
+        digitalWrite(LED_BLUE, LOW);
         digitalWrite(LED_RED, LOW);
       } else if (storage > 20) {
         digitalWrite(LED_GREEN, LOW);
-        digitalWrite(LED_YELLOW, HIGH);
+        digitalWrite(LED_BLUE, HIGH);
         digitalWrite(LED_RED, LOW);
       } else {
         digitalWrite(LED_GREEN, LOW);
-        digitalWrite(LED_YELLOW, LOW);
+        digitalWrite(LED_BLUE, LOW);
         digitalWrite(LED_RED, HIGH);
       }
 
