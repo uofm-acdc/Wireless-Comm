@@ -2,61 +2,52 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 
-// Define pin assignments
-#define BUTTON_PIN 2   // Push button for triggering the capture
-#define LED_RED 3      // RED LED (Indicates no photo taken)
-#define LED_BLUE 4     // BLUE LED (Indicates processing)
-#define LED_GREEN 5    // GREEN LED (Indicates photo captured)
+#define BUTTON_PIN 2    // Push button for capturing
+#define LED_RED 3       // RGB LED Red pin (PWM)
+#define LED_GREEN 5     // RGB LED Green pin (PWM)
+#define LED_BLUE 6      // RGB LED Blue pin (PWM)
 
-// Initialize RF24 radio module (CE, CSN pins)
-RF24 radio(9, 10);
-const byte address[6] = "00001";  // Unique address for communication
+RF24 radio(9, 10);  // CE, CSN pins for NRF24L01
+const byte address[6] = "00001";  // Unique address for RF communication
 
 void setup() {
-    // Configure button as input with pull-up resistor (default HIGH)
     pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-    // Configure LED pins as output
     pinMode(LED_RED, OUTPUT);
-    pinMode(LED_BLUE, OUTPUT);
     pinMode(LED_GREEN, OUTPUT);
+    pinMode(LED_BLUE, OUTPUT);
 
-    // Initialize RF24 transceiver module
     radio.begin();
-    radio.openWritingPipe(address);  // Set the communication address
-    radio.setPALevel(RF24_PA_LOW);   // Set transmission power level
-    radio.stopListening();  // Set module to send mode
+    radio.openWritingPipe(address);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.stopListening();
 
-    // Set initial state: RED LED ON (No photo taken)
-    digitalWrite(LED_RED, HIGH);
-    digitalWrite(LED_BLUE, LOW);
-    digitalWrite(LED_GREEN, LOW);
+    setColor(255, 0, 0); // RED: No photo taken (Default)
 }
 
 void loop() {
-    // Check if the button is pressed (LOW means pressed due to pull-up)
     if (digitalRead(BUTTON_PIN) == LOW) {
-        // Change LED to indicate processing
-        digitalWrite(LED_RED, LOW);
-        digitalWrite(LED_BLUE, HIGH);
-
-        // Send capture command to the receiver
-        char message = 'C';  // 'C' represents "Capture" command
+        setColor(0, 0, 255); // BLUE: Processing
+        
+        char message = 'C';  // 'C' for "Capture" command
         radio.write(&message, sizeof(message));
 
-        // Simulate processing delay (camera takes time to capture)
-        delay(500);
+        delay(500);  // Simulate processing
 
-        // Indicate that the photo was successfully captured
-        digitalWrite(LED_BLUE, LOW);
-        digitalWrite(LED_GREEN, HIGH);
-
-        // Keep GREEN LED ON for 2 seconds before resetting
+        setColor(0, 255, 0); // GREEN: Photo captured
+        
         delay(2000);
-        digitalWrite(LED_GREEN, LOW);
-        digitalWrite(LED_RED, HIGH);  // Reset to default state (RED ON)
+        setColor(255, 0, 0); // RED: Reset to "No photo taken"
     }
 }
+
+// Function to change RGB LED color
+void setColor(int red, int green, int blue) {
+    analogWrite(LED_RED, red);
+    analogWrite(LED_GREEN, green);
+    analogWrite(LED_BLUE, blue);
+}
+
 
 // Receiver Code (Drone Camera - ESP32-CAM)
 #include <SPI.h>
