@@ -1,0 +1,94 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+#define BUTTON_PIN 2
+#define LED_RED 3
+#define LED_BLUE 4
+#define LED_GREEN 5
+
+RF24 radio(9, 10);  // CE, CSN
+const byte address[6] = "00001";
+
+void setup() {
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(LED_RED, OUTPUT);
+    pinMode(LED_BLUE, OUTPUT);
+    pinMode(LED_GREEN, OUTPUT);
+
+    radio.begin();
+    radio.openWritingPipe(address);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.stopListening();
+
+    digitalWrite(LED_RED, HIGH);  // Default: No photo taken
+}
+
+void loop() {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        digitalWrite(LED_RED, LOW);
+        digitalWrite(LED_BLUE, HIGH);  // Processing
+        
+        char message = 'C';  // Capture signal
+        radio.write(&message, sizeof(message));
+
+        delay(500);  // Simulate processing
+        digitalWrite(LED_BLUE, LOW);
+        digitalWrite(LED_GREEN, HIGH);  // Photo captured
+
+        delay(2000);  // Keep green LED on for 2 sec
+        digitalWrite(LED_GREEN, LOW);
+        digitalWrite(LED_RED, HIGH);  // Reset
+    }
+}
+//Receiver Code (ESP32-CAM)
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#include "esp_camera.h"
+
+#define PWDN_GPIO -1
+#define RESET_GPIO -1
+#define LED_PIN 4  // Optional for status
+
+RF24 radio(9, 10);
+const byte address[6] = "00001";
+
+void setup() {
+    pinMode(LED_PIN, OUTPUT);
+    radio.begin();
+    radio.openReadingPipe(0, address);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.startListening();
+    
+    camera_config_t config;
+    config.frame_size = FRAMESIZE_VGA;
+    config.pixel_format = PIXFORMAT_JPEG;
+    config.jpeg_quality = 12;
+    config.fb_count = 1;
+
+    esp_camera_init(&config);
+}
+
+void loop() {
+    if (radio.available()) {
+        char message;
+        radio.read(&message, sizeof(message));
+        
+        if (message == 'C') {
+            digitalWrite(LED_PIN, HIGH); // Indicate capture
+            capturePhoto();
+            digitalWrite(LED_PIN, LOW);
+        }
+    }
+}
+
+void capturePhoto() {
+    camera_fb_t *fb = esp_camera_fb_get();
+    if (!fb) {
+        Serial.println("Camera capture failed");
+        return;
+    }
+    // Save or send the image
+    esp_camera_fb_return(fb);
+}
