@@ -1,0 +1,126 @@
+// Define pins for the first RGB LED
+int redOne = 13;
+int greenOne = 12;
+int blueOne = 11;
+
+// Define pins for the second RGB LED
+int redTwo = 10;
+int greenTwo = 9;
+int blueTwo = 8;
+
+// Define pins for the third RGB LED
+int redThree = 7;
+int greenThree = 6;
+int blueThree = 5;
+
+// String variable to store user input
+String myColor;
+
+// Message to prompt user input
+String msg = "What color?";
+
+void setup() {
+  // Initialize serial communication
+  Serial.begin(9600);
+
+  // Set all RGB LED pins as outputs
+  pinMode(redOne, OUTPUT);
+  pinMode(greenOne, OUTPUT);
+  pinMode(blueOne, OUTPUT);
+  
+  pinMode(redTwo, OUTPUT);
+  pinMode(greenTwo, OUTPUT);
+  pinMode(blueTwo, OUTPUT);
+  
+  pinMode(redThree, OUTPUT);
+  pinMode(greenThree, OUTPUT);
+  pinMode(blueThree, OUTPUT);
+}
+
+void loop() {
+  // Prompt the user for a color input
+  Serial.println(msg);
+
+  // Wait for user input in the serial monitor
+  while (Serial.available() == 0) {
+    // Do nothing until input is received
+  }
+
+  // Read the user input as a string
+  myColor = Serial.readString();
+
+  // Check if the input is "red" (case-insensitive) and turn LEDs red
+  if (myColor == "red" || myColor == "RED" || myColor == "Red") {
+    digitalWrite(redOne, HIGH);
+    digitalWrite(greenOne, LOW);
+    digitalWrite(blueOne, LOW);
+    
+    digitalWrite(redTwo, HIGH);
+    digitalWrite(greenTwo, LOW);
+    digitalWrite(blueTwo, LOW);
+    
+    digitalWrite(redThree, HIGH);
+    digitalWrite(greenThree, LOW);
+    digitalWrite(blueThree, LOW);
+  }
+
+  // Check if the input is "green" and turn LEDs green
+  if (myColor == "green" || myColor == "GREEN" || myColor == "Green") {
+    digitalWrite(redOne, LOW);
+    digitalWrite(greenOne, HIGH);
+    digitalWrite(blueOne, LOW);
+    
+    digitalWrite(redTwo, LOW);
+    digitalWrite(greenTwo, HIGH);
+    digitalWrite(blueTwo, LOW);
+    
+    digitalWrite(redThree, LOW);
+    digitalWrite(greenThree, HIGH);
+    digitalWrite(blueThree, LOW);
+  }
+
+  // Check if the input is "blue" and turn LEDs blue
+  if (myColor == "blue" || myColor == "BLUE" || myColor == "Blue") {
+    digitalWrite(redOne, LOW);
+    digitalWrite(greenOne, LOW);
+    digitalWrite(blueOne, HIGH);
+    
+    digitalWrite(redTwo, LOW);
+    digitalWrite(greenTwo, LOW);
+    digitalWrite(blueTwo, HIGH);  
+    
+    digitalWrite(redThree, LOW);
+    digitalWrite(greenThree, LOW);
+    digitalWrite(blueThree, HIGH);
+  }
+
+  // Check if the input is "yellow" and turn LEDs yellow (red + green)
+  if (myColor == "yellow" || myColor == "YELLOW" || myColor == "Yellow") {
+    digitalWrite(redOne, HIGH);
+    digitalWrite(greenOne, HIGH);
+    digitalWrite(blueOne, LOW);
+    
+    digitalWrite(redTwo, HIGH);
+    digitalWrite(greenTwo, HIGH);
+    digitalWrite(blueTwo, LOW);
+    
+    digitalWrite(redThree, HIGH);
+    digitalWrite(greenThree, HIGH);
+    digitalWrite(blueThree, LOW);
+  }
+
+  // Check if the input is "off" and turn all LEDs off
+  if (myColor == "off" || myColor == "OFF") {
+    digitalWrite(redOne, LOW);
+    digitalWrite(greenOne, LOW);
+    digitalWrite(blueOne, LOW);
+    
+    digitalWrite(redTwo, LOW);
+    digitalWrite(greenTwo, LOW);
+    digitalWrite(blueTwo, LOW);
+    
+    digitalWrite(redThree, LOW);
+    digitalWrite(greenThree, LOW);
+    digitalWrite(blueThree, LOW);
+  }
+}

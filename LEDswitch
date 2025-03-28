@@ -1,0 +1,18 @@
+int switchPin = 3;  // Push button connected to pin 2
+int LEDPin = 2;    // LED connected to pin 13
+int switchState;    // Variable to store button state
+
+void setup() {
+  pinMode(switchPin, INPUT_PULLUP);  // Enable internal pull-up resistor
+  pinMode(LEDPin, OUTPUT);
+}
+
+void loop() {
+  switchState = digitalRead(switchPin);  // Read the button state
+
+  if (switchState == LOW) {  // Button is pressed (LOW because of INPUT_PULLUP)
+    digitalWrite(LEDPin, HIGH); // Turn on LED
+  } else {
+    digitalWrite(LEDPin, LOW); // Turn off LED
+  }
+}
