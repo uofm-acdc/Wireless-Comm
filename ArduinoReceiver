@@ -1,0 +1,38 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+#define CE_PIN 9
+#define CSN_PIN 10
+
+RF24 radio(CE_PIN, CSN_PIN);
+const byte address[6] = "00001";
+
+void setup() {
+  Serial.begin(9600);  // Serial to Raspberry Pi over USB
+  radio.begin();
+  radio.setPALevel(RF24_PA_HIGH);
+  radio.setDataRate(RF24_250KBPS);
+  radio.setChannel(0x76);
+  radio.openReadingPipe(1, address);
+  radio.startListening();
+}
+
+void loop() {
+  if (radio.available()) {
+    char message[32] = "";
+    radio.read(&message, sizeof(message));
+    
+    // Filter only printable characters
+    String cleanMsg = "";
+    for (int i = 0; i < sizeof(message); i++) {
+      if (message[i] >= 32 && message[i] <= 126) {
+        cleanMsg += (char)message[i];
+      }
+    }
+
+    if (cleanMsg == "CAPTURE") {
+      Serial.println("CAPTURE");  // Send to Raspberry Pi
+    }
+  }
+}
