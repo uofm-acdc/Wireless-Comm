@@ -1,30 +1,42 @@
-int LEDState = 0;
-int LEDPin = 2;
-int buttonPin = 3;
-int buttonNew;
-int buttonOld = 1;
-int dt = 100;
- void setup() {
-  // put your setup code here, to run once:
-Serial.begin(9600);
-pinMode(LEDPin, OUTPUT);
-pinMode(buttonPin, INPUT);
+int LEDState = 0;       // Variable to track LED state (0 = OFF, 1 = ON)
+int LEDPin = 2;         // LED connected to digital pin 2
+int buttonPin = 3;      // Button connected to digital pin 3
+int buttonNew;          // Stores the current button state
+int buttonOld = 1;      // Stores the previous button state (assuming HIGH = unpressed)
+int dt = 50;            // Delay for stability (helps with debounce)
+
+void setup() {
+  // Initialize serial communication for debugging
+  Serial.begin(9600);
+  
+  // Set LED pin as an OUTPUT
+  pinMode(LEDPin, OUTPUT);
+  
+  // Set button pin as an INPUT (assumes external pull-down resistor is used)
+  pinMode(buttonPin, INPUT);
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-buttonNew = digitalRead(buttonPin);
-if (buttonOld == 0 && buttonNew == 1){
-  if (LEDState == 0){
-    digitalWrite(LEDPin, HIGH);
-    LEDState = 1;
-  }
-  else{
-    digitalWrite(LEDPin, LOW);
-    LEDState = 0;
+  // Read the current button state
+  buttonNew = digitalRead(buttonPin);
+
+  // Detects button press (LOW to HIGH transition)
+  if (buttonOld == 0 && buttonNew == 1) {
+    
+    // Toggle LED state
+    if (LEDState == 0) {
+      digitalWrite(LEDPin, HIGH);  // Turn LED ON
+      LEDState = 1;                // Update LED state
+    } 
+    else {
+      digitalWrite(LEDPin, LOW);   // Turn LED OFF
+      LEDState = 0;                // Update LED state
+    }
   }
 
-  }
+  // Store the current button state for the next loop iteration
   buttonOld = buttonNew;
-delay(dt);
+
+  // Small delay for stability (helps with debounce)
+  delay(dt);
 }
