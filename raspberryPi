@@ -1,68 +1,29 @@
-import os
-import RPi.GPIO as GPIO
-from lib_nrf24 import NRF24
-import spidev
+#This code is for the pi. It enables the pi to "listen" for the Capture command from the arduino through the usb port. 
+mport serial
 import time
 import picamera
-import threading
 
-pipes = [b"00001"]
+# Update this to match your connected Arduino's port (check with `ls /dev/ttyUSB*`)
+SERIAL_PORT = "/dev/ttyUSB0"
+BAUD_RATE = 9600
 
-# Initialize nRF24L01+
-radio = NRF24(GPIO, spidev.SpiDev())
-radio.begin(0, 17)  # SPI CE pin
-radio.setPayloadSize(32)
-radio.setChannel(0x76)
-radio.setDataRate(NRF24.BR_250KBPS)
-radio.setPALevel(NRF24.PA_HIGH)
-radio.openReadingPipe(1, pipes[0])
-radio.startListening()
-
-# Initialize PiCamera
+# Initialize camera
 camera = picamera.PiCamera()
 
-# Function to get free storage
-def get_storage_status():
-    statvfs = os.statvfs("/")
-    total = (statvfs.f_blocks * statvfs.f_frsize) / (1024 ** 3)
-    free = (statvfs.f_bfree * statvfs.f_frsize) / (1024 ** 3)
-    return (free / total) * 100
+# Setup serial connection to Arduino
+ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+time.sleep(2)  # Give time for serial to stabilize
 
-# Function to get battery level (if available)
-def get_battery_status():
-    try:
-        with open("/sys/class/power_supply/BAT0/capacity", "r") as f:
-            return int(f.read().strip())
-    except:
-        return -1  # No battery info available
+print("Listening for CAPTURE command from Arduino...")
 
-# Function to periodically send status
-def send_status_loop():
-    while True:
-        storage = get_storage_status()
-        battery = get_battery_status()
-        message = f"{int(storage)}%|{int(battery)}%"
-        radio.stopListening()
-        radio.write(list(message.encode('utf-8')))
-        radio.startListening()
-        print(f"[Status Sent] Storage: {storage:.2f}%, Battery: {battery}%")
-        time.sleep(10)  # Adjust reporting interval here
-
-# Start status sending thread
-status_thread = threading.Thread(target=send_status_loop, daemon=True)
-status_thread.start()
-
-# Main loop - listen for capture command
 while True:
-    while radio.available():
-        receivedMessage = []
-        radio.read(receivedMessage, radio.getDynamicPayloadSize())
-        message = "".join([chr(n) for n in receivedMessage if 32 <= n <= 126])
+    if ser.in_waiting > 0:
+        line = ser.readline().decode("utf-8").strip()
+        print(f"[Serial] Received: {line}")
 
-        print(f"[Command Received] {message}")
-
-        if message == "CAPTURE":
-            print("Trigger received. Capturing image...")
+        if line == "CAPTURE":
             timestamp = time.strftime("%Y%m%d_%H%M%S")
-            camera.capture(f"/home/pi/image_{timestamp}.jpg")
-            print("Image saved.")
+            filepath = f"/home/pi/image_{timestamp}.jpg"
+            print(f"[Action] Capturing image: {filepath}")
+            camera.capture(filepath)
+            print("[Success] Image saved.")
