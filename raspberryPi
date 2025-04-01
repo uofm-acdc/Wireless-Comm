@@ -1,29 +1,73 @@
-#This code is for the pi. It enables the pi to "listen" for the Capture command from the arduino through the usb port. 
-mport serial
+import os
+import RPi.GPIO as GPIO
+from lib_nrf24 import NRF24
+import spidev
 import time
 import picamera
+import threading
 
-# Update this to match your connected Arduino's port (check with `ls /dev/ttyUSB*`)
-SERIAL_PORT = "/dev/ttyUSB0"
-BAUD_RATE = 9600
+# Define the communication pipe (address must match Arduino)
+pipes = [b"00001"]
 
-# Initialize camera
+# Initialize the nRF24L01+ radio module
+radio = NRF24(GPIO, spidev.SpiDev())
+radio.begin(0, 17)                      # SPI Bus 0, CE pin on GPIO17
+radio.setPayloadSize(32)               # Max payload size for nRF24L01+
+radio.setChannel(0x76)                 # Set RF channel
+radio.setDataRate(NRF24.BR_250KBPS)    # Lower data rate = longer range
+radio.setPALevel(NRF24.PA_HIGH)        # Set power amplifier level
+radio.openReadingPipe(1, pipes[0])     # Open pipe to listen on
+radio.startListening()                 # Start listening for incoming data
+
+# Initialize the Raspberry Pi Camera
 camera = picamera.PiCamera()
 
-# Setup serial connection to Arduino
-ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-time.sleep(2)  # Give time for serial to stabilize
+# Function to calculate percentage of free storage
+def get_storage_status():
+    statvfs = os.statvfs("/")  # Get file system info
+    total = (statvfs.f_blocks * statvfs.f_frsize) / (1024 ** 3)  # Total in GB
+    free = (statvfs.f_bfree * statvfs.f_frsize) / (1024 ** 3)    # Free in GB
+    return (free / total) * 100  # Return free storage as %
 
-print("Listening for CAPTURE command from Arduino...")
+# Function to check battery percentage (if supported)
+def get_battery_status():
+    try:
+        with open("/sys/class/power_supply/BAT0/capacity", "r") as f:
+            return int(f.read().strip())  # Read battery % from system file
+    except:
+        return -1  # If no battery file exists (e.g., desktop Pi), return -1
 
+# Function to send storage and battery status regularly
+def send_status_loop():
+    while True:
+        storage = get_storage_status()        # Get % of free disk space
+        battery = get_battery_status()        # Get battery level
+        message = f"{int(storage)}%|{int(battery)}%"  # Format as string
+
+        # Transmit message via nRF24
+        radio.stopListening()                 # Switch to transmit mode
+        radio.write(list(message.encode('utf-8')))  # Send encoded string as bytes
+        radio.startListening()                # Return to listening mode
+
+        print(f"[Status Sent] Storage: {storage:.2f}%, Battery: {battery}%")
+        time.sleep(10)  # Wait before sending the next update
+
+# Start the status update loop in a background thread
+status_thread = threading.Thread(target=send_status_loop, daemon=True)
+status_thread.start()
+
+# Main loop - listen for "CAPTURE" command
 while True:
-    if ser.in_waiting > 0:
-        line = ser.readline().decode("utf-8").strip()
-        print(f"[Serial] Received: {line}")
+    while radio.available():  # Check if message is available
+        receivedMessage = []
+        radio.read(receivedMessage, radio.getDynamicPayloadSize())  # Read raw bytes
+        # Convert to clean string by filtering printable characters
+        message = "".join([chr(n) for n in receivedMessage if 32 <= n <= 126])
 
-        if line == "CAPTURE":
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            filepath = f"/home/pi/image_{timestamp}.jpg"
-            print(f"[Action] Capturing image: {filepath}")
-            camera.capture(filepath)
-            print("[Success] Image saved.")
+        print(f"[Command Received] {message}")
+
+        if message == "CAPTURE":
+            print("Trigger received. Capturing image...")
+            timestamp = time.strftime("%Y%m%d_%H%M%S")  # Unique timestamp
+            camera.capture(f"/home/pi/image_{timestamp}.jpg")  # Save image
+            print("Image saved.")
