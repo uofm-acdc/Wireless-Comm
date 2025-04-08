@@ -1,0 +1,59 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+// Define pin assignments
+#define BUTTON_PIN 2   // Push button for triggering the capture
+#define LED_RED 3      // RED LED (Indicates no photo taken)
+#define LED_BLUE 4     // BLUE LED (Indicates processing)
+#define LED_GREEN 5    // GREEN LED (Indicates photo captured)
+
+// Initialize RF24 radio module (CE, CSN pins)
+RF24 radio(9, 10);
+const byte address[6] = "00001";  // Unique address for communication
+
+void setup() {
+    // Configure button as input with pull-up resistor (default HIGH)
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+    // Configure LED pins as output
+    pinMode(LED_RED, OUTPUT);
+    pinMode(LED_BLUE, OUTPUT);
+    pinMode(LED_GREEN, OUTPUT);
+
+    // Initialize RF24 transceiver module
+    radio.begin();
+    radio.openWritingPipe(address);  // Set the communication address
+    radio.setPALevel(RF24_PA_LOW);   // Set transmission power level
+    radio.stopListening();  // Set module to send mode
+
+    // Set initial state: RED LED ON (No photo taken)
+    digitalWrite(LED_RED, HIGH);
+    digitalWrite(LED_BLUE, LOW);
+    digitalWrite(LED_GREEN, LOW);
+}
+
+void loop() {
+    // Check if the button is pressed (LOW means pressed due to pull-up)
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        // Change LED to indicate processing
+        digitalWrite(LED_RED, LOW);
+        digitalWrite(LED_BLUE, HIGH);
+
+        // Send capture command to the receiver
+        char message = 'C';  // 'C' represents "Capture" command
+        radio.write(&message, sizeof(message));
+
+        // Simulate processing delay (camera takes time to capture)
+        delay(500);
+
+        // Indicate that the photo was successfully captured
+        digitalWrite(LED_BLUE, LOW);
+        digitalWrite(LED_GREEN, HIGH);
+
+        // Keep GREEN LED ON for 2 seconds before resetting
+        delay(2000);
+        digitalWrite(LED_GREEN, LOW);
+        digitalWrite(LED_RED, HIGH);  // Reset to default state (RED ON)
+    }
+}
