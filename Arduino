@@ -1,91 +1,53 @@
-#include <SPI.h>
-#include <nRF24L01.h>
-#include <RF24.h>
+#include <SoftwareSerial.h>
 
-#define CE_PIN 9
-#define CSN_PIN 10
+// --- Pin Definitions ---
+#define BUTTON_PIN 2   // Push button to trigger capture
+#define LED_RED 3      // RED LED = idle
+#define LED_BLUE 4     // BLUE LED = processing
+#define LED_GREEN 5    // GREEN LED = capture success
 
-// Define pins
-#define BUTTON_PIN 2        // Button input pin
-#define LED_GREEN 4
-#define LED_BLUE 5
-#define LED_RED 6
-
-RF24 radio(CE_PIN, CSN_PIN);
-const byte address[6] = "00001";
-
-bool buttonPreviouslyPressed = false;
+// SoftwareSerial setup: RX = 6, TX = 7 (change if needed)
+SoftwareSerial radio(6, 7);  // RX, TX
 
 void setup() {
-  Serial.begin(9600);
-  
-  // Setup pins
-  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Active LOW button
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_BLUE, OUTPUT);
-  pinMode(LED_RED, OUTPUT);
+    // Start serial communication
+    Serial.begin(9600);      // For debug
+    radio.begin(915000);      // Match MRO module baud rate
 
-  // Initialize nRF24L01+
-  radio.begin();
-  radio.setPALevel(RF24_PA_HIGH);
-  radio.setDataRate(RF24_250KBPS);
-  radio.setChannel(0x76);
-  radio.openWritingPipe(address);
-  radio.openReadingPipe(1, address);
-  radio.stopListening();  // Start in transmit mode
+    // Set pin modes
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(LED_RED, OUTPUT);
+    pinMode(LED_BLUE, OUTPUT);
+    pinMode(LED_GREEN, OUTPUT);
+
+    // Default state: RED LED ON (idle)
+    digitalWrite(LED_RED, HIGH);
+    digitalWrite(LED_BLUE, LOW);
+    digitalWrite(LED_GREEN, LOW);
 }
 
 void loop() {
-  // --- Check Button Press ---
-  bool buttonPressed = digitalRead(BUTTON_PIN) == LOW;
-
-  if (buttonPressed && !buttonPreviouslyPressed) {
-    // Send "CAPTURE" command on button press
-    const char text[] = "CAPTURE";
-    radio.stopListening();  // Ensure in transmit mode
-    bool success = radio.write(&text, sizeof(text));
-    Serial.println(success ? "Capture command sent!" : "Failed to send!");
-    delay(200);  // Debounce delay
-  }
-
-  buttonPreviouslyPressed = buttonPressed;
-
-  // --- Switch to receive mode and listen for status ---
-  radio.startListening();
-
-  unsigned long startTime = millis();
-  while (millis() - startTime < 500) {
-    if (radio.available()) {
-      char message[32] = "";
-      radio.read(&message, sizeof(message));
-      Serial.print("Received status: ");
-      Serial.println(message);
-
-      // Parse storage percentage from message
-      int storage = atoi(strtok(message, "%|"));
-      Serial.print("Storage: ");
-      Serial.print(storage);
-      Serial.println("%");
-
-      // LED Control Logic
-      if (storage > 50) {
-        digitalWrite(LED_GREEN, HIGH);
-        digitalWrite(LED_BLUE, LOW);
+    // Check if the button is pressed (active LOW)
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        // Start processing state
         digitalWrite(LED_RED, LOW);
-      } else if (storage > 20) {
-        digitalWrite(LED_GREEN, LOW);
         digitalWrite(LED_BLUE, HIGH);
-        digitalWrite(LED_RED, LOW);
-      } else {
-        digitalWrite(LED_GREEN, LOW);
+
+        // Send "CAPTURE" command over UART
+        radio.println("CAPTURE");
+        Serial.println("Sent: CAPTURE");
+
+        // Simulate processing delay
+        delay(500);
+
+        // Show success
         digitalWrite(LED_BLUE, LOW);
+        digitalWrite(LED_GREEN, HIGH);
+
+        delay(2000);  // Show green for 2 seconds
+
+        // Reset to idle state
+        digitalWrite(LED_GREEN, LOW);
         digitalWrite(LED_RED, HIGH);
-      }
-
-      break;  // Exit loop after receiving a message
     }
-  }
-
-  radio.stopListening();  // Go back to transmit mode for next button press
-  delay(200);  // Small delay to avoid flooding
 }
