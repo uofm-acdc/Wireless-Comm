@@ -12,7 +12,7 @@ SoftwareSerial radio(6, 7);  // RX, TX
 void setup() {
     // Start serial communication
     Serial.begin(9600);      // For debug
-    radio.begin(915000);      // Match MRO module baud rate
+    radio.begin(57600);      // Match MRO module baud rate
 
     // Set pin modes
     pinMode(BUTTON_PIN, INPUT_PULLUP);
