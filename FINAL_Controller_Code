@@ -1,0 +1,136 @@
+// Pin Definitions
+#define BUTTON_PIN 2
+#define RED_PIN    12
+#define GREEN_PIN  11
+#define BLUE_PIN   10
+
+// Timing
+unsigned long lastPressTime = 0;
+const unsigned long debounceDelay = 200;
+
+unsigned long lastPingTime = 0;
+const unsigned long pingInterval = 4000; // 1 second
+
+// State Definitions
+enum SystemState { WAITING, PINGING, ERROR };
+SystemState currentState = WAITING;
+
+// Ping Logic
+int pingAttempts = 0;
+const int maxPingAttempts = 3;
+int pongCount = 0;
+bool buttonPressed = false;
+
+// Setup
+void setup() {
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
+  pinMode(BLUE_PIN, OUTPUT);
+
+  Serial.begin(57600);
+  Serial1.begin(57600);
+  delay(3000); // Allow time for startup
+
+  setLED(WAITING);
+}
+
+// Loop
+void loop() {
+  handleButton();
+  handleState();
+}
+
+// Handle Button
+void handleButton() {
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    if (!buttonPressed && (millis() - lastPressTime > debounceDelay)) {
+      buttonPressed = true;
+      lastPressTime = millis();
+
+      // Toggle behavior based on current state
+      if (currentState == WAITING) {
+        currentState = PINGING;
+        pingAttempts = 0;
+        pongCount = 0;
+        lastPingTime = 0;
+        Serial.println("Starting PING process...");
+      } else if (currentState == ERROR) {
+        currentState = WAITING;
+        Serial.println("Resetting from ERROR state...");
+      }
+    }
+  } else {
+    buttonPressed = false;
+  }
+}
+
+// FSM Logic
+void handleState() {
+  switch (currentState) {
+    case WAITING:
+      setLED(WAITING);
+      break;
+
+    case PINGING:
+      setLED(PINGING);
+
+      // Send ping at interval
+      if ((millis() - lastPingTime) >= pingInterval && pingAttempts < maxPingAttempts) {
+        Serial1.println("PING");
+        Serial.print("Sent PING #");
+        Serial.println(pingAttempts + 1);
+        lastPingTime = millis();
+        pingAttempts++;
+      }
+
+      // Listen for pong
+      if (Serial1.available()) {
+        String message = Serial1.readStringUntil('\n');
+        message.trim();
+        if (message == "PONG") {
+          pongCount++;
+          Serial.print("Received PONG #");
+          Serial.println(pongCount);
+        }
+      }
+
+      // Success condition
+      if (pongCount >= 3) {
+        Serial.println("Received 3 PONGs. Returning to WAITING...");
+        currentState = WAITING;
+      }
+
+      // Fail condition
+      if (pingAttempts >= maxPingAttempts && pongCount < 3) {
+        Serial.println("Failed to receive 3 PONGs. Entering ERROR state...");
+        currentState = ERROR;
+      }
+      break;
+
+    case ERROR:
+      setLED(ERROR);
+      break;
+  }
+}
+
+// LED Function
+void setLED(SystemState state) {
+  switch (state) {
+    case WAITING:  // GREEN
+      digitalWrite(RED_PIN, LOW);
+      digitalWrite(GREEN_PIN, HIGH);
+      digitalWrite(BLUE_PIN, LOW);
+      break;
+    case PINGING:  // ORANGE (RED + GREEN)
+      digitalWrite(RED_PIN, HIGH);
+      digitalWrite(GREEN_PIN, HIGH);
+      digitalWrite(BLUE_PIN, LOW);
+      break;
+    case ERROR:    // RED
+      digitalWrite(RED_PIN, HIGH);
+      digitalWrite(GREEN_PIN, LOW);
+      digitalWrite(BLUE_PIN, LOW);
+      break;
+  }
+}
