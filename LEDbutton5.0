@@ -1,0 +1,100 @@
+// PINS
+#define BUTTON_PIN 2
+#define RED_PIN    11
+#define GREEN_PIN  12
+#define BLUE_PIN   10
+
+bool buttonPressed = false;
+bool ledOn = false;               // Button ON/OFF
+int statusState = 1;              // 1 = RED, 2 = BLUE, 3 = GREEN
+unsigned long lastPressTime = 0;
+unsigned long debounceDelay = 250;
+
+// (Example: HC-12 connected to SoftwareSerial)
+#include <SoftwareSerial.h>
+SoftwareSerial radio(6, 7);  // RX, TX
+
+void setup() {
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
+  pinMode(BLUE_PIN, OUTPUT);
+
+  Serial.begin(9600);
+  radio.begin(9600); // Adjust for your module
+
+  setLED(0); // Start OFF
+}
+
+void loop() {
+  handleButton();
+  handleRadio();
+  updateLED();
+}
+
+void handleButton() {
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    if (!buttonPressed && (millis() - lastPressTime > debounceDelay)) {
+      buttonPressed = true;
+      lastPressTime = millis();
+      ledOn = !ledOn;
+      Serial.println(ledOn ? "LED ON" : "LED OFF");
+    }
+  } else {
+    buttonPressed = false;
+  }
+}
+
+void handleRadio() {
+  if (radio.available()) {
+    String message = radio.readStringUntil('\n');
+    message.trim(); // Remove whitespace
+
+    if (message == "BAD") {
+      statusState = 1;
+      Serial.println("Received: BAD");
+    } else if (message == "OKAY") {
+      statusState = 2;
+      Serial.println("Received: OKAY");
+    } else if (message == "GREAT") {
+      statusState = 3;
+      Serial.println("Received: GREAT");
+    } else {
+      Serial.print("Unknown message: ");
+      Serial.println(message);
+    }
+  }
+}
+
+void updateLED() {
+  if (!ledOn) {
+    setLED(0); // OFF
+  } else {
+    setLED(statusState); // Reflect status
+  }
+}
+
+void setLED(int state) {
+  switch (state) {
+    case 0: // OFF
+      digitalWrite(RED_PIN, LOW);
+      digitalWrite(GREEN_PIN, LOW);
+      digitalWrite(BLUE_PIN, LOW);
+      break;
+    case 1: // RED
+      digitalWrite(RED_PIN, HIGH);
+      digitalWrite(GREEN_PIN, LOW);
+      digitalWrite(BLUE_PIN, LOW);
+      break;
+    case 2: // BLUE
+      digitalWrite(RED_PIN, LOW);
+      digitalWrite(GREEN_PIN, LOW);
+      digitalWrite(BLUE_PIN, HIGH);
+      break;
+    case 3: // GREEN
+      digitalWrite(RED_PIN, LOW);
+      digitalWrite(GREEN_PIN, HIGH);
+      digitalWrite(BLUE_PIN, LOW);
+      break;
+  }
+}

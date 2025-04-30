@@ -1,0 +1,117 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+#define BUTTON_PIN 2    // Push button for capturing
+#define LED_RED 3       // RGB LED Red pin (PWM)
+#define LED_GREEN 5     // RGB LED Green pin (PWM)
+#define LED_BLUE 6      // RGB LED Blue pin (PWM)
+
+RF24 radio(9, 10);  // CE, CSN pins for NRF24L01
+const byte address[6] = "00001";  // Unique address for RF communication
+
+void setup() {
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+    pinMode(LED_RED, OUTPUT);
+    pinMode(LED_GREEN, OUTPUT);
+    pinMode(LED_BLUE, OUTPUT);
+
+    radio.begin();
+    radio.openWritingPipe(address);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.stopListening();
+
+    setColor(255, 0, 0); // RED: No photo taken (Default)
+}
+
+void loop() {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        setColor(0, 0, 255); // BLUE: Processing
+        
+        char message = 'C';  // 'C' for "Capture" command
+        radio.write(&message, sizeof(message));
+
+        delay(500);  // Simulate processing
+
+        setColor(0, 255, 0); // GREEN: Photo captured
+        
+        delay(2000);
+        setColor(255, 0, 0); // RED: Reset to "No photo taken"
+    }
+}
+
+// Function to change RGB LED color
+void setColor(int red, int green, int blue) {
+    analogWrite(LED_RED, red);
+    analogWrite(LED_GREEN, green);
+    analogWrite(LED_BLUE, blue);
+}
+
+
+// Receiver Code (Drone Camera - ESP32-CAM)
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#include "esp_camera.h"
+
+// Define pin assignments (if using an external status LED)
+#define LED_PIN 4  // Optional LED to indicate capture
+
+// RF24 radio module (CE, CSN)
+RF24 radio(9, 10);
+const byte address[6] = "00001";  // Same address as transmitter
+
+void setup() {
+    // Configure LED pin as output (optional)
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);  // Ensure LED is OFF initially
+
+    // Initialize RF24 module in listening mode
+    radio.begin();
+    radio.openReadingPipe(0, address);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.startListening();  // Start listening for incoming data
+
+    // Camera module configuration
+    camera_config_t config;
+    config.frame_size = FRAMESIZE_VGA;   // Set resolution (adjust as needed)
+    config.pixel_format = PIXFORMAT_JPEG; // Output format
+    config.jpeg_quality = 12;  // Image quality (lower = better quality, larger file)
+    config.fb_count = 1;  // Number of frame buffers
+
+    // Initialize the camera
+    if (esp_camera_init(&config) != ESP_OK) {
+        Serial.println("Camera init failed");
+        return;
+    }
+}
+
+void loop() {
+    // Check if a signal is received from the transmitter
+    if (radio.available()) {
+        char message;
+        radio.read(&message, sizeof(message));  // Read incoming command
+        
+        // If the command is 'C', capture a photo
+        if (message == 'C') {
+            digitalWrite(LED_PIN, HIGH);  // Turn ON LED to indicate capture
+            capturePhoto();
+            digitalWrite(LED_PIN, LOW);   // Turn OFF LED after capture
+        }
+    }
+}
+
+// Function to capture a photo
+void capturePhoto() {
+    // Get a camera frame
+    camera_fb_t *fb = esp_camera_fb_get();
+    if (!fb) {
+        Serial.println("Camera capture failed");
+        return;
+    }
+
+    // (OPTIONAL) Store the image or send it to an SD card/server here
+    // For now, we just release the frame buffer
+    esp_camera_fb_return(fb);
+}
